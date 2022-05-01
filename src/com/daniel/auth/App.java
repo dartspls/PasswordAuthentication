@@ -3,16 +3,6 @@ package com.daniel.auth;
 import java.io.BufferedReader;
 import java.io.InputStreamReader;
 
-import java.sql.Connection;
-import java.sql.DriverManager;
-import java.sql.PreparedStatement;
-import java.sql.ResultSet;
-import java.sql.SQLException;
-import java.sql.Statement;
-
-import java.util.ArrayList;
-import java.util.Properties;
-
 public class App {
     final String MAIN_MENU_DIALOGUE =   "\n==================\n" +
                                         "- Main Menu\n" +

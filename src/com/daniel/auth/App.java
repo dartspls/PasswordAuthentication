@@ -76,7 +76,7 @@ public class App {
 
     private void registerAccount() {
         // TODO: Implement
-        boolean res = ctrl.insert("dan", "qwerty1234", "q1w2e3r4");
+        boolean res = false;
         System.out.println("Did insert succeed?: " + res);
     }
 

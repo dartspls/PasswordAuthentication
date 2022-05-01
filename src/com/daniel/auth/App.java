@@ -7,6 +7,7 @@ public class App {
     public static final int USERNAME_MAX = 20;
     public static final int PASSWORD_MAX = 64;
     public static final int SALT_SIZE = 8; // 64 bit
+    public static final String STORAGE_FILE_NAME = "Credentials.csv";
 
     final String MAIN_MENU_DIALOGUE =   "\n==================\n" +
                                         "- Main Menu\n" +

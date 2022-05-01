@@ -17,7 +17,7 @@ public class Controller {
     private final String framework = "embedded";
     private final String protocol = "jdbc:derby";
     private final String dbName = "accountsDB";
-    private final String tableInfo = "accounts(username varchar(20), password varchar(64), salt varchar(8))";
+    private final String tableInfo;
     // db connection
     private Connection conn = null;
 
@@ -25,14 +25,99 @@ public class Controller {
     private ArrayList<Statement> statements = new ArrayList<>();
 
     public Controller() throws SQLException {
-        conn = DriverManager.getConnection(protocol + dbName + ";create=true");
+        tableInfo = "accounts(username varchar(" + App.USERNAME_MAX + "), password varchar(" + App.PASSWORD_MAX + "), salt varchar(" + App.SALT_SIZE + "))";
+        try {
+            conn = DriverManager.getConnection(protocol + dbName + ";create=true");
+
+            int tableStatus = checkTableExists();
+            if(tableStatus == 0) {
+                System.out.println("Table exists, sweet as");
+            } else if(tableStatus == 1) {
+                // TODO debug
+                System.out.println("Table doesn't exist, creating...");
+                createTable();
+            } else if (tableStatus == 2) {
+                System.out.println("Conn is null, uh oh");
+            }
+        } catch (SQLException sqle) {
+            printSQLException(sqle);
+        }
+
+    }
+    public boolean insert(String username, String password, String salt) {
+        try {
+            PreparedStatement insert = conn.prepareStatement("insert into accounts values (?, ?, ?)");
+            statements.add(insert);
+            insert.setString(1, username);
+            insert.setString(2, password);
+            insert.setString(3, salt);
+            insert.executeUpdate();
+
+        } catch (SQLException sqle) {
+            printSQLException(sqle);
+        }
+        return false;
+
+    }
+
+    public void shutdownDB() {
+        try {
+            DriverManager.getConnection(protocol + ";:shutdown=true");
+        } catch (SQLException sqle) {
+            if (( (sqle.getErrorCode() == 50000)
+                    && ("XJ015".equals(sqle.getSQLState()) ))) {
+                System.out.println("Shutdown derby normally");
+            } else {
+                System.out.println("Unexpected exception, shutdown failed");
+                printSQLException(sqle);
+            }
+        } finally {
+            // free up resources
+            while(!statements.isEmpty()) {
+                Statement st = statements.remove(0);
+                try {
+                    if(st != null) {
+                        st.close();
+                        st = null;
+                    }
+                } catch (SQLException sqle) {
+                    printSQLException(sqle);
+                }
+
+                try {
+                    if (conn != null) {
+                        conn.close();
+                        conn = null;
+                    }
+                } catch (SQLException sqle) {
+                    printSQLException(sqle);
+                }
+            }
+        }
+    }
+
+    private void printSQLException(SQLException e) {
+        while(e != null) {
+            System.out.println("\nSQLException:");
+            System.out.println(" SQL State:     " + e.getSQLState());
+            System.out.println(" Error Code:    " + e.getErrorCode());
+            System.out.println(" Message        " + e.getMessage());
+            e = e.getNextException();
+        }
     }
 
     private void createTable() throws SQLException {
         if(conn != null) {
             Statement s = conn.createStatement();
             statements.add(s);
-            s.execute("create table " + tableInfo);
+            boolean result =s.execute("create table " + tableInfo);
+            if(result) {
+                // TODO remove debug
+                System.out.println("Successfully created DB");
+            } else {
+                // TODO remove debug
+                System.out.println("Failed to create DB");
+            }
         }
     }
 

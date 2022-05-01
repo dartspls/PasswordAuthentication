@@ -4,6 +4,10 @@ import java.io.BufferedReader;
 import java.io.InputStreamReader;
 
 public class App {
+    public static final int USERNAME_MAX = 20;
+    public static final int PASSWORD_MAX = 64;
+    public static final int SALT_SIZE = 8; // 64 bit
+
     final String MAIN_MENU_DIALOGUE =   "\n==================\n" +
                                         "- Main Menu\n" +
                                         "- Commands:\n" +

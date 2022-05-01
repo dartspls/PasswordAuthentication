@@ -16,11 +16,14 @@ public class App {
                                         "- 'r' : Register a new user account\n" +
                                         "- 'l' : Login with an existing account";
 
+    Controller ctrl;
+
     private void go(String[] args) {
         BufferedReader input = new BufferedReader(new InputStreamReader(System.in));
         // temp
         boolean loggedIn = false;
         boolean run = true;
+        ctrl = new Controller();
 
         String userInput;
         while(run) {
@@ -73,7 +76,8 @@ public class App {
 
     private void registerAccount() {
         // TODO: Implement
-        System.out.println("Not implemented");
+        boolean res = ctrl.insert("dan", "qwerty1234", "q1w2e3r4");
+        System.out.println("Did insert succeed?: " + res);
     }
 
     private void invalidInput() {

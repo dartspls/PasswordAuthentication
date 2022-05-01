@@ -1,6 +1,5 @@
 package com.daniel.auth;
 
-import javax.swing.plaf.nimbus.State;
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.PreparedStatement;
@@ -10,12 +9,12 @@ import java.sql.Statement;
 
 import java.util.ArrayList;
 import java.util.Locale;
-import java.util.Properties;
+
 
 public class Controller {
     // db setup
     private final String framework = "embedded";
-    private final String protocol = "jdbc:derby";
+    private final String protocol = "jdbc:derby:";
     private final String dbName = "accountsDB";
     private final String tableInfo;
     // db connection
@@ -24,10 +23,10 @@ public class Controller {
     // list of statements for cleanup
     private ArrayList<Statement> statements = new ArrayList<>();
 
-    public Controller() throws SQLException {
+    public Controller() {
         tableInfo = "accounts(username varchar(" + App.USERNAME_MAX + "), password varchar(" + App.PASSWORD_MAX + "), salt varchar(" + App.SALT_SIZE + "))";
         try {
-            conn = DriverManager.getConnection(protocol + dbName + ";create=true");
+            conn = DriverManager.getConnection(protocol + dbName + ";create=true;");
 
             int tableStatus = checkTableExists();
             if(tableStatus == 0) {
@@ -47,17 +46,16 @@ public class Controller {
     public boolean insert(String username, String password, String salt) {
         try {
             PreparedStatement insert = conn.prepareStatement("insert into accounts values (?, ?, ?)");
-            statements.add(insert);
             insert.setString(1, username);
             insert.setString(2, password);
             insert.setString(3, salt);
             insert.executeUpdate();
-
+            insert.close();
+            return true;
         } catch (SQLException sqle) {
             printSQLException(sqle);
         }
         return false;
-
     }
 
     public void shutdownDB() {
@@ -74,7 +72,7 @@ public class Controller {
         } finally {
             // free up resources
             while(!statements.isEmpty()) {
-                Statement st = statements.remove(0);
+                Statement st = (Statement)statements.remove(0);
                 try {
                     if(st != null) {
                         st.close();

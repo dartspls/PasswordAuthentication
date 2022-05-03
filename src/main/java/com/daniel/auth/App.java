@@ -2,12 +2,19 @@ package com.daniel.auth;
 
 import java.io.BufferedReader;
 import java.io.InputStreamReader;
+import java.time.Duration;
+
+import org.springframework.security.crypto.argon2.Argon2PasswordEncoder;
 
 public class App {
     public static final int USERNAME_MAX = 20;
     public static final int PASSWORD_MAX = 64;
     public static final int SALT_SIZE = 8; // 64 bit
     public static final String STORAGE_FILE_NAME = "Credentials.csv";
+
+
+    /* ARGON2 CONFIG PARAMS */
+
 
     final String MAIN_MENU_DIALOGUE =   "\n==================\n" +
                                         "- Main Menu\n" +
@@ -17,14 +24,47 @@ public class App {
                                         "- 'r' : Register a new user account\n" +
                                         "- 'l' : Login with an existing account";
 
-    Controller ctrl;
+    Controller ctrl; // "database"
+
+    private void testingArgon2() {
+
+        /*
+        * This config takes 1~ second on a machine with:
+        * CPU: Ryzen 9 5900X 12c24t
+        * RAM: 32GB DDR4 3200 CL19
+        */
+        int saltLength = 128 / 8; // 128 bits for salt
+        int hashLength = 256 / 8; // 256 bits for hashed pw
+        int parallelism = 4; // NOTE: BouncyCastle Argon2 implementation does not take advantage of multiple threads, so even with threads=4 it only runs on one thread
+        int memoryInKb = 256 * 1024; // 256mb
+        int iterations = 4;
+
+        Argon2PasswordEncoder pwEncoder = new Argon2PasswordEncoder(saltLength, hashLength, parallelism, memoryInKb, iterations);
+        long start = System.nanoTime();
+        String hashed = pwEncoder.encode("somethingEasy22");
+        long took = System.nanoTime() - start;
+
+        System.out.println(hashed);
+        System.out.println("Took " + (took / 1e9));
+
+        start = System.nanoTime();
+        boolean matches = pwEncoder.matches("somethingEasy22", hashed);
+        took = System.nanoTime() - start;
+        System.out.println("Matching...");
+        System.out.println("Took " + (took / 1e9));
+
+        if(matches) {
+            System.out.println("Matches!");
+        } else {
+            System.out.println("Doesn't match!");
+        }
+    }
 
     private void go(String[] args) {
         BufferedReader input = new BufferedReader(new InputStreamReader(System.in));
         // temp
         boolean loggedIn = false;
         boolean run = true;
-        ctrl = new Controller();
 
         String userInput;
         while(run) {
@@ -94,7 +134,8 @@ public class App {
 
     public static void main(String[] args) {
 	    System.out.println("Starting...");
-        new App().go(args);
+//        new App().go(args);
+        new App().testingArgon2();
         System.out.println("Exiting...");
     }
 }

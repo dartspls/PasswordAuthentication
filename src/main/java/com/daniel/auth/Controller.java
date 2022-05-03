@@ -4,11 +4,19 @@ import java.io.*;
 
 public class Controller {
     // gave up on db
-    public static void insert(String username, String password, String salt) {
+    public static void insert(String username, String password) {
         // check that username doesn't exist, faking "primary key"
         if(findUsername(username)) {
             // some error
             System.err.println("ERROR: Attempting to insert existing username");
+            return;
+        }
+        try{
+            BufferedWriter writer = new BufferedWriter(new FileWriter(App.STORAGE_FILE_NAME, true));
+            writer.write(username + " " + password);
+        } catch (IOException e) {
+            System.err.println("IOException in insert");
+            e.printStackTrace();
         }
     }
 
@@ -22,10 +30,10 @@ public class Controller {
         try {
             BufferedReader reader = new BufferedReader(new InputStreamReader(new FileInputStream(App.STORAGE_FILE_NAME)));
             String line;
-            String[] parts; // [0] username, [1] password, [2] salt
+            String[] parts; // [0] username, [1] password
 
             while ((line = reader.readLine()) != null) {
-                parts = line.split(",");
+                parts = line.split(" ");
                 if (parts[0].equals(username)) {
                     return true;
                 }
@@ -33,7 +41,7 @@ public class Controller {
         } catch (FileNotFoundException fne) {
             System.err.println("No credential storage file found. Expected: " + App.STORAGE_FILE_NAME);
         } catch (IOException ioe) {
-            System.out.println("IO Exception");
+            System.err.println("IO Exception");
             ioe.printStackTrace();
         }
 
@@ -41,23 +49,21 @@ public class Controller {
     }
 
     /**
-     * Find an account in the storage file
+     * Find an account in the storage file and return the password (hash)
      *
      * @param username username of account
-     * @param password salted password
      * @return true if an account with matching username and password + salt exists
      */
-    public static boolean findAccount(String username, String password) {
+    public static String getPassword(String username) {
         try {
             BufferedReader reader = new BufferedReader(new InputStreamReader(new FileInputStream(App.STORAGE_FILE_NAME)));
             String line;
-            String[] parts; // [0] username, [1] password, [2] salt
+            String[] parts; // [0] username, [1] password
 
             while ((line = reader.readLine()) != null) {
-                parts = line.split(",");
-                String storedPass = parts[1] + parts[2]; // concatenate password hash and salt
-                if (username.equals(parts[0]) && password.equals(storedPass)) {
-                    return true;
+                parts = line.split(" ");
+                if (username.equals(parts[0])) {
+                    return parts[1];
                 }
             }
         } catch (FileNotFoundException fne) {
@@ -66,7 +72,6 @@ public class Controller {
             System.out.println("IO Exception");
             ioe.printStackTrace();
         }
-
-        return false;
+        return null;
     }
 }

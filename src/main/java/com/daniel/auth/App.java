@@ -103,7 +103,7 @@ public class App {
                         registerAccount(input);
                         break;
                     case 'l':
-                        login();
+                        login(input);
                         break;
                     default:
                         invalidInput(cmd);
@@ -148,6 +148,8 @@ public class App {
         if(username.length() < USERNAME_MIN || username.length() > USERNAME_MAX) {
             return USERNAME_STATUS.INVALID;
         }
+
+        // TODO usernames only use [a-zA-Z0-9_]
 
         // check if username already exists
         if(Controller.findUsername(username)) {
@@ -205,7 +207,40 @@ public class App {
     }
 
     private void login(BufferedReader reader) {
-        //TODO
+        try {
+            String username = "";
+            String password = "";
+            boolean attemptingAuth = true;
+            while(attemptingAuth) {
+                System.out.println("Please enter your username. To return to the main menu, press 'enter' without entering any text");
+                username = reader.readLine();
+
+                if(username.equals("")) {
+                    attemptingAuth = false;
+                    continue;
+                }
+
+                System.out.println("Please enter your password:");
+                password = reader.readLine();
+
+                if(Controller.findUsername(username)) {
+                    String storedPwHash = Controller.getPassword(username);
+                    if(pwEncoder.matches(password, storedPwHash)) {
+                        // authenticated
+                        System.out.println("Successfully logged in: " + username);
+                        attemptingAuth = false;
+                    } else {
+                        // waste some time to avoid information leakage
+                        pwEncoder.encode("12345678");
+                        System.out.println("Incorrect username or password, please try again");
+                    }
+                }
+            }
+        } catch (IOException e) {
+            e.printStackTrace();
+        } catch (NullPointerException npe) {
+            System.out.println("Empty input received");
+        }
     }
 
     /**

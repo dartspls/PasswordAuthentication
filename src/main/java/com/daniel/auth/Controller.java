@@ -29,7 +29,7 @@ public class Controller {
         }
         try{
             BufferedWriter writer = new BufferedWriter(new FileWriter(App.STORAGE_FILE_NAME, true));
-            writer.write(username + " " + passwordHash);
+            writer.write(username.toLowerCase() + " " + passwordHash);
             writer.newLine();
             writer.flush();
             writer.close();
@@ -50,7 +50,7 @@ public class Controller {
             BufferedReader reader = new BufferedReader(new InputStreamReader(new FileInputStream(App.STORAGE_FILE_NAME)));
             String line;
             String[] parts; // [0] username, [1] password
-
+            username = username.toLowerCase();
             while ((line = reader.readLine()) != null) {
                 parts = line.split(" ");
                 if (parts[0].equals(username)) {

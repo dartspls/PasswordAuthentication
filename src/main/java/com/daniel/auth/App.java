@@ -1,6 +1,7 @@
 package com.daniel.auth;
 
 import java.io.*;
+import java.util.HashMap;
 
 import org.springframework.security.crypto.argon2.Argon2PasswordEncoder;
 
@@ -25,12 +26,12 @@ public class App {
     final String MAIN_MENU_DIALOGUE =   "\n==================\n" +
                                         "- Main Menu\n" +
                                         "- Commands:\n" +
-                                        "- 'e' : Exit application\n" +
-                                        "- 'h' : Display help information\n" +
-                                        "- 'r' : Register a new user account\n" +
-                                        "- 'l' : Login with an existing account";
+                                        "- 'e' | 'E' : Exit application\n" +
+                                        "- 'r' | 'R' : Register a new user account\n" +
+                                        "- 'l' | 'L' : Login with an existing account";
 
     Argon2PasswordEncoder pwEncoder = new Argon2PasswordEncoder(SALT_LEN, HASH_LEN, PARALLELISM, MEM_KB, ITERATIONS);
+    HashMap<String, Integer> loginAttempts = new HashMap<>();
 
     private void go(String[] args) {
         BufferedReader input = new BufferedReader(new InputStreamReader(System.in));
@@ -48,7 +49,7 @@ public class App {
                     break;
                 }
 
-                char cmd = userInput.charAt(0);
+                char cmd = userInput.toLowerCase().charAt(0);
                 switch(cmd) {
                     case 'e':
                         run = false;
@@ -179,17 +180,49 @@ public class App {
 
                 System.out.println("Please enter your password:");
                 password = reader.readLine();
+                username = username.toLowerCase();
+
+                if(loginAttempts.containsKey(username)) {
+                    int failedAttempts = loginAttempts.get(username);
+                    if (failedAttempts >= 3) {
+                        System.out.println("You have failed too many login attempts and are locked out of this account");
+                        return;
+                    }
+                }
 
                 if(Controller.findUsername(username)) {
                     String storedPwHash = Controller.getPassword(username);
                     if(pwEncoder.matches(password, storedPwHash)) {
                         // authenticated
                         System.out.println("Successfully logged in: " + username);
+
+                        // clear failed login attempts
+                        if(loginAttempts.containsKey(username)) {
+                            loginAttempts.remove(username);
+                        }
+
                         attemptingAuth = false;
                     } else {
-                        // waste some time to avoid information leakage
-                        pwEncoder.encode("12345678");
                         System.out.println("Incorrect username or password, please try again");
+                        // increment failed login attempts
+                        if(loginAttempts.containsKey(username)) {
+                            int a = loginAttempts.get(username);
+                            a ++;
+                            loginAttempts.put(username, a);
+                        } else {
+                            loginAttempts.put(username, 1);
+                        }
+                    }
+                } else {
+                    // waste some time to avoid information leakage
+                    pwEncoder.encode("12345678");
+                    System.out.println("Incorrect username or password, please try again");
+                    if(loginAttempts.containsKey(username)) {
+                        int a = loginAttempts.get(username);
+                        a ++;
+                        loginAttempts.put(username, a);
+                    } else {
+                        loginAttempts.put(username, 1);
                     }
                 }
             }
@@ -222,6 +255,7 @@ public class App {
                     return;
                 }
 
+                username = username.toLowerCase();
                 usernameStatus = validateUsername(username);
                 System.out.println("\n");
                 switch (usernameStatus) {

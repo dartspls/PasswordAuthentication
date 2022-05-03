@@ -3,8 +3,19 @@ package com.daniel.auth;
 import java.io.*;
 
 public class Controller {
+
+    public static void init() {
+        try{
+            File credFile = new File(App.STORAGE_FILE_NAME);
+            if(!credFile.exists()) {
+                credFile.createNewFile();
+            }
+        } catch (IOException ioe) {
+            System.err.println("Error creating credential file");
+        }
+    }
     // gave up on db
-    public static void insert(String username, String password) {
+    public static void insert(String username, String passwordHash) {
         // check that username doesn't exist, faking "primary key"
         if(findUsername(username)) {
             // some error
@@ -13,7 +24,10 @@ public class Controller {
         }
         try{
             BufferedWriter writer = new BufferedWriter(new FileWriter(App.STORAGE_FILE_NAME, true));
-            writer.write(username + " " + password);
+            writer.write(username + " " + passwordHash);
+            writer.newLine();
+            writer.flush();
+            writer.close();
         } catch (IOException e) {
             System.err.println("IOException in insert");
             e.printStackTrace();

@@ -1,19 +1,18 @@
 package com.daniel.auth;
 
 import java.io.*;
-import java.time.Duration;
 
 import org.springframework.security.crypto.argon2.Argon2PasswordEncoder;
 
 public class App {
     private enum USERNAME_STATUS { UNAVAILABLE, INVALID, VALID }
-    private enum PASSWORD_STATUS { INVALID, INVALID_COMMON, INVALID_SHORT, VALID }
+    private enum PASSWORD_STATUS { INVALID, INVALID_COMMON, INVALID_LENGTH, VALID }
     public static final int USERNAME_MAX = 20;
     public static final int USERNAME_MIN = 3;
     public static final int PASSWORD_MAX = 64;
     public static final int PASSWORD_MIN = 8;
     public static final String STORAGE_FILE_NAME = "Credentials.csv";
-    public static final String COMMON_PASSWORDS_LIST = "100k-most-used-passwords-NCST-8char-plus.txt";
+    public static final String COMMON_PASSWORDS_LIST = "100k-most-used-passwords-NCSC-8char-plus.txt";
 
 
     /* ARGON2 CONFIG PARAMS */
@@ -31,7 +30,7 @@ public class App {
                                         "- 'r' : Register a new user account\n" +
                                         "- 'l' : Login with an existing account";
 
-    Controller ctrl; // "database"
+    Argon2PasswordEncoder pwEncoder = new Argon2PasswordEncoder(SALT_LEN, HASH_LEN, PARALLELISM, MEM_KB, ITERATIONS);
 
     private void testingArgon2() {
 
@@ -69,6 +68,8 @@ public class App {
 
     private void go(String[] args) {
         BufferedReader input = new BufferedReader(new InputStreamReader(System.in));
+        badWordsFilter.loadConfigs();
+        Controller.init();
         // temp
         boolean loggedIn = false;
         boolean run = true;
@@ -85,8 +86,8 @@ public class App {
             try {
                 // get input
                 userInput = input.readLine();
-                if(userInput.length() < 1) {
-                    // got nothing
+                if(userInput == null || userInput.equals("")) {
+                    // invalid input
                     continue;
                 }
 
@@ -99,19 +100,25 @@ public class App {
                         help();
                         break;
                     case 'r':
-                        registerAccount();
+                        registerAccount(input);
                         break;
                     case 'l':
                         login();
                         break;
                     default:
-                        invalidInput();
+                        invalidInput(cmd);
                         break;
                 }
 
+            } catch (IOException ioe) {
+                if(ioe.getMessage().equals("Stream closed")) {
+                    System.out.println("Input ended");
+                }
+                return;
             } catch (Exception e) {
                 // TODO: Proper error messages
                 e.printStackTrace();
+                return;
             }
         }
 
@@ -120,9 +127,22 @@ public class App {
         } catch (IOException e) {
             e.printStackTrace();
         }
-
     }
 
+    /**
+     * Check if a username is clean (contains no profanity)
+     * @param username username to check
+     * @return true if the username is clean, false if it contains filtered words
+     */
+    private boolean cleanUsername(String username) {
+        return badWordsFilter.filterText(username);
+    }
+
+    /**
+     * Validate a username
+     * @param username username to validate
+     * @return USERNAME_STATUS.VALID if valid, USERNAME_STATUS.INVALID if username contains profanity, or is too short, USERNAME_STATUS.UNAVAILABLE if already exists in db
+     */
     private USERNAME_STATUS validateUsername (String username) {
         // check if username is too short
         if(username.length() < USERNAME_MIN || username.length() > USERNAME_MAX) {
@@ -134,20 +154,23 @@ public class App {
             return USERNAME_STATUS.UNAVAILABLE;
         }
 
-        // TODO check for profanity
-        if(false) {
+        if(!cleanUsername(username)) {
             return USERNAME_STATUS.INVALID;
         }
 
         return USERNAME_STATUS.VALID;
     }
 
+    /**
+     * Check the validity of a password
+     * @param password password to validate
+     * @return PASSWORD_STATUS.VALID if successfully validated, PASSWORD_STATUS.INVALID_COMMON if password is too common, PASSWORD_STATUS.INVALID_LENGTH if too short or long
+     */
     private PASSWORD_STATUS validatePassword (String password) {
         if(password.length() < PASSWORD_MIN || password.length() > PASSWORD_MAX) {
-            return PASSWORD_STATUS.INVALID_SHORT;
+            return PASSWORD_STATUS.INVALID_LENGTH;
         }
 
-        // TODO implement checking for common passwords
         if(findInCommon(password)) {
             return PASSWORD_STATUS.INVALID_COMMON;
         }
@@ -181,13 +204,15 @@ public class App {
         return false;
     }
 
-    private void login() {
-        // TODO: Implement
-        System.out.println("Not implemented");
+    private void login(BufferedReader reader) {
+        //TODO
     }
 
-    private void registerAccount() {
-        // TODO: Implement
+    /**
+     * Register an account and add to the database
+     * @param reader inputstream reader
+     */
+    private void registerAccount(BufferedReader reader) {
         boolean invalidUsername = true;
         boolean invalidPassword = true;
         try{
@@ -196,7 +221,6 @@ public class App {
             String passwordEnteredAgain = "";
             PASSWORD_STATUS passwordStatus = PASSWORD_STATUS.INVALID;
             USERNAME_STATUS usernameStatus = USERNAME_STATUS.INVALID;
-            BufferedReader reader = new BufferedReader(new InputStreamReader(System.in));
             while(invalidUsername) {
                 System.out.println("\n\nPlease enter a username (3 or more characters, no profanity):");
                 username = reader.readLine();
@@ -226,7 +250,7 @@ public class App {
                         case INVALID_COMMON:
                             System.out.println("Password is found in a list of common passwords, please choose another.");
                             break;
-                        case INVALID_SHORT:
+                        case INVALID_LENGTH:
                             System.out.println("Password is not within size constraints. Please choose a password at least 8 characters long and less than 65 characters.");
                             break;
                         case VALID:
@@ -238,29 +262,27 @@ public class App {
                 }
             }
 
+            // sanity check
             if(passwordStatus != PASSWORD_STATUS.VALID || usernameStatus != USERNAME_STATUS.VALID) {
                 System.err.println("Error: Password and username are not valid, yet we have passed verification stage!");
                 return;
             }
 
             // generate hash of password
-            Argon2PasswordEncoder pwEncoder = new Argon2PasswordEncoder(SALT_LEN, HASH_LEN, PARALLELISM, MEM_KB, ITERATIONS);
             String hashedPw = pwEncoder.encode(password);
 
             // insert into file
             Controller.insert(username, hashedPw);
 
-            reader.close();
         } catch (IOException e) {
             e.printStackTrace();
+        } catch (NullPointerException npe) {
+            System.out.println("Empty input received");
         }
     }
 
-
-
-    private void invalidInput() {
-        // TODO: Implement
-        System.out.println("Not implemented");
+    private void invalidInput(char input) {
+        System.out.println("Invalid input: '" + input + "'");
     }
 
     private void help() {

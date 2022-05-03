@@ -14,7 +14,12 @@ public class Controller {
             System.err.println("Error creating credential file");
         }
     }
-    // gave up on db
+
+    /**
+     * insert an account into the database
+     * @param username username of account
+     * @param passwordHash hashed password in argon2 format
+     */
     public static void insert(String username, String passwordHash) {
         // check that username doesn't exist, faking "primary key"
         if(findUsername(username)) {

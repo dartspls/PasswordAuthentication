@@ -47,8 +47,9 @@ public class badWordsFilter {
                 }
             }
             reader.close();
-            // TODO
-            System.out.println("Loaded " + counter + " words to filter out");
+            if(counter == 0) {
+                System.err.println("Error: Unable to load filtered words list for username cleanliness checking");
+            }
         } catch (IOException e) {
             e.printStackTrace();
         } 
@@ -103,13 +104,7 @@ public class badWordsFilter {
                 }
             }
         }
-
-        // TODO
-        for(String s: badWords) {
-            System.out.println(s + " qualified as a bad word in a username");
-        }
         return badWords;
-
     }
 
     public static boolean filterText(String input) {

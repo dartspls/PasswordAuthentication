@@ -5,7 +5,7 @@ import java.io.*;
 import org.springframework.security.crypto.argon2.Argon2PasswordEncoder;
 
 public class App {
-    private enum USERNAME_STATUS { UNAVAILABLE, INVALID, VALID }
+    private enum USERNAME_STATUS { UNAVAILABLE, INVALID, INVALID_LENGTH, INVALID_CHAR, INVALID_LANG, VALID }
     private enum PASSWORD_STATUS { INVALID, INVALID_COMMON, INVALID_LENGTH, VALID }
     public static final int USERNAME_MAX = 20;
     public static final int USERNAME_MIN = 3;
@@ -32,72 +32,26 @@ public class App {
 
     Argon2PasswordEncoder pwEncoder = new Argon2PasswordEncoder(SALT_LEN, HASH_LEN, PARALLELISM, MEM_KB, ITERATIONS);
 
-    private void testingArgon2() {
-
-        /*
-        * This config takes 1~ second on a machine with:
-        * CPU: Ryzen 9 5900X 12c24t
-        * RAM: 32GB DDR4 3200 CL19
-        */
-        int saltLength = 128 / 8; // 128 bits for salt
-        int hashLength = 256 / 8; // 256 bits for hashed pw
-        int parallelism = 4; // NOTE: BouncyCastle Argon2 implementation does not take advantage of multiple threads, so even with threads=4 it only runs on one thread
-        int memoryInKb = 256 * 1024; // 256mb
-        int iterations = 4;
-
-        Argon2PasswordEncoder pwEncoder = new Argon2PasswordEncoder(saltLength, hashLength, parallelism, memoryInKb, iterations);
-        long start = System.nanoTime();
-        String hashed = pwEncoder.encode("somethingEasy22");
-        long took = System.nanoTime() - start;
-
-        System.out.println(hashed);
-        System.out.println("Took " + (took / 1e9));
-
-        start = System.nanoTime();
-        boolean matches = pwEncoder.matches("somethingEasy22", hashed);
-        took = System.nanoTime() - start;
-        System.out.println("Matching...");
-        System.out.println("Took " + (took / 1e9));
-
-        if(matches) {
-            System.out.println("Matches!");
-        } else {
-            System.out.println("Doesn't match!");
-        }
-    }
-
     private void go(String[] args) {
         BufferedReader input = new BufferedReader(new InputStreamReader(System.in));
         badWordsFilter.loadConfigs();
         Controller.init();
-        // temp
-        boolean loggedIn = false;
         boolean run = true;
-
         String userInput;
         while(run) {
-            // TODO: placeholder auth stuff
-            if(loggedIn) {
-                System.out.println("Welcome admin");
-            } else {
-                System.out.println(MAIN_MENU_DIALOGUE);
-            }
-
+            System.out.println(MAIN_MENU_DIALOGUE);
             try {
                 // get input
                 userInput = input.readLine();
-                if(userInput == null || userInput.equals("")) {
+                if(userInput == null) {
                     // invalid input
-                    continue;
+                    break;
                 }
 
                 char cmd = userInput.charAt(0);
                 switch(cmd) {
                     case 'e':
                         run = false;
-                        break;
-                    case 'h':
-                        help();
                         break;
                     case 'r':
                         registerAccount(input);
@@ -116,8 +70,6 @@ public class App {
                 }
                 return;
             } catch (Exception e) {
-                // TODO: Proper error messages
-                e.printStackTrace();
                 return;
             }
         }
@@ -144,12 +96,13 @@ public class App {
      * @return USERNAME_STATUS.VALID if valid, USERNAME_STATUS.INVALID if username contains profanity, or is too short, USERNAME_STATUS.UNAVAILABLE if already exists in db
      */
     private USERNAME_STATUS validateUsername (String username) {
-        // check if username is too short
         if(username.length() < USERNAME_MIN || username.length() > USERNAME_MAX) {
-            return USERNAME_STATUS.INVALID;
+            return USERNAME_STATUS.INVALID_LENGTH;
         }
 
-        // TODO usernames only use [a-zA-Z0-9_]
+        if(!username.matches("[a-zA-Z0-9_]{3,}")) {
+            return USERNAME_STATUS.INVALID_CHAR;
+        }
 
         // check if username already exists
         if(Controller.findUsername(username)) {
@@ -157,7 +110,7 @@ public class App {
         }
 
         if(!cleanUsername(username)) {
-            return USERNAME_STATUS.INVALID;
+            return USERNAME_STATUS.INVALID_LANG;
         }
 
         return USERNAME_STATUS.VALID;
@@ -206,6 +159,10 @@ public class App {
         return false;
     }
 
+    /**
+     * Prompt a user to login
+     * @param reader input reader
+     */
     private void login(BufferedReader reader) {
         try {
             String username = "";
@@ -257,16 +214,28 @@ public class App {
             PASSWORD_STATUS passwordStatus = PASSWORD_STATUS.INVALID;
             USERNAME_STATUS usernameStatus = USERNAME_STATUS.INVALID;
             while(invalidUsername) {
-                System.out.println("\n\nPlease enter a username (3 or more characters, no profanity):");
+                System.out.println("\n\nPlease enter a username (3 to 20 characters, no profanity, alphanumeric characters and _ only):");
+                System.out.println("Enter nothing to exit to main menu");
                 username = reader.readLine();
 
+                if(username.equals("")) {
+                    return;
+                }
+
                 usernameStatus = validateUsername(username);
+                System.out.println("\n");
                 switch (usernameStatus) {
                     case UNAVAILABLE:
-                        System.out.println("Username " + username + " is unavailable.");
+                        System.out.println("Username " + username + " is unavailable");
                         break;
-                    case INVALID:
-                        System.out.println("Username " + " is not valid.");
+                    case INVALID_LENGTH:
+                        System.out.println("Username is too short or long, please choose a username between 3 and 20 characters");
+                        break;
+                    case INVALID_CHAR:
+                        System.out.println("Username uses an invalid character, please choose a username containing only upper or lowercase characters, numbers 0 to 9, or _");
+                        break;
+                    case INVALID_LANG:
+                        System.out.println("Username contains profanity, please choose a family friendly username");
                         break;
                     case VALID:
                         invalidUsername = false;
@@ -276,7 +245,11 @@ public class App {
 
             while(invalidPassword) {
                 System.out.println("\n\nPlease enter a password, must be at least 8 characters long and less than 65 characters:");
+                System.out.println("Enter nothing to exit to main menu");
                 password = reader.readLine();
+                if(password.equals("")) {
+                    return;
+                }
                 System.out.println("Please verify your password by entering it again:");
                 passwordEnteredAgain = reader.readLine();
                 if(password.equals(passwordEnteredAgain)) {
@@ -320,20 +293,10 @@ public class App {
         System.out.println("Invalid input: '" + input + "'");
     }
 
-    private void help() {
-        // TODO: Implement
-        System.out.println("Not implemented");
-    }
-
 
     public static void main(String[] args) {
 	    System.out.println("Starting...");
-        // TODO: Get rid of testing
-        if(args.length == 0) {
-            new App().go(args);
-        } else {
-            new App().testingArgon2();
-        }
+        new App().go(args);
         System.out.println("Exiting...");
     }
 }
